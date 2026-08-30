@@ -1,0 +1,315 @@
+/* machi-diff
+   Shape Consistency Lock : パネル 14px / 行と入力 8px / ボタン pill
+   Color Consistency Lock : アクセントは地図の「あらわれた」と同じ #4a80c4 のみ
+   Page Theme Lock        : light 固定（地図の地面が明色のため dark は成立しない） */
+
+:root {
+  --bg: rgba(252, 252, 251, 0.93);
+  --ink: #23211e;
+  --ink-2: #6a675f;
+  --ink-3: #9a968c;
+  --line: rgba(35, 33, 30, 0.1);
+  --accent: #4a80c4;
+  --r-panel: 14px;
+  --r-row: 8px;
+  --shadow: 0 1px 2px rgba(35, 33, 30, 0.06),
+            0 8px 28px rgba(35, 33, 30, 0.1);
+  --pad: 16px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font-family: "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+#map { position: absolute; inset: 0; }
+
+/* --- パネル共通 --- */
+#panel, #ranking, #detail {
+  position: absolute;
+  z-index: 2;
+  background: var(--bg);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow);
+}
+
+#panel {
+  top: 14px;
+  left: 14px;
+  width: 244px;
+  max-height: calc(100vh - 28px - 42vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--pad);
+}
+#panel h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.sub {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 検索 --- */
+#search { position: relative; margin-top: 14px; }
+#q {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-row);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#q::placeholder { color: var(--ink-3); }
+#q:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(74, 128, 196, 0.16);
+}
+#suggest {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r-row);
+  box-shadow: var(--shadow);
+  max-height: 220px;
+  overflow-y: auto;
+}
+#suggest li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+#suggest li:hover { background: rgba(74, 128, 196, 0.1); }
+#suggest em { font-style: normal; font-size: 10.5px; color: var(--ink-3); }
+
+/* --- 凡例とモード --- */
+#filters { margin-top: 14px; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 2px;
+  border-radius: var(--r-row);
+  cursor: pointer;
+}
+.row input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.label { font-size: 13px; flex: 1; }
+.count {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.row.off .label, .row.off .count { opacity: 0.38; }
+
+#basemaps, #mode, #years {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+.hint { margin: 9px 0 0; font-size: 11px; color: var(--ink-3); }
+
+/* --- この地図について --- */
+#about {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--ink-2);
+}
+#about summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-3);
+}
+#about summary::-webkit-details-marker { display: none; }
+#about summary::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.2px solid currentColor;
+  border-bottom: 1.2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.16s;
+}
+#about[open] summary::before { transform: rotate(45deg); }
+#about p { margin: 8px 0 0; line-height: 1.65; }
+
+/* --- ランキング --- */
+#ranking {
+  left: 14px;
+  bottom: 14px;
+  width: 244px;
+  max-height: 36vh;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px 12px var(--pad);
+  overflow: hidden;
+}
+#ranking summary {
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+  flex: none;
+}
+#ranking summary::-webkit-details-marker { display: none; }
+#ranking > .sub { flex: none; }
+#ranking:not([open]) { max-height: none; }
+#ranking:not([open]) > .sub { display: none; }
+
+#rank-list {
+  min-height: 0;
+  margin: 9px 0 0;
+  padding: 0 8px 0 0;
+  list-style: none;
+  overflow-y: auto;
+  counter-reset: rank;
+}
+#rank-list li {
+  counter-increment: rank;
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 3px 7px;
+  padding: 4px 5px;
+  border-radius: var(--r-row);
+  cursor: pointer;
+  font-size: 12.5px;
+}
+#rank-list li:hover { background: rgba(74, 128, 196, 0.09); }
+#rank-list li.active { background: rgba(74, 128, 196, 0.15); }
+#rank-list li::before {
+  content: counter(rank);
+  color: var(--ink-3);
+  font-size: 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+#rank-list .rate {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  font-size: 11.5px;
+}
+#rank-list .meter {
+  grid-column: 2 / -1;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+/* --- 建物の詳細 --- */
+#detail {
+  right: 14px;
+  top: 14px;
+  width: 236px;
+  padding: var(--pad);
+  font-size: 12.5px;
+}
+#detail h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+#detail h2 .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  flex: none;
+}
+#detail dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 12px;
+  margin: 0;
+}
+#detail dt { color: var(--ink-2); }
+#detail dd { margin: 0; font-variant-numeric: tabular-nums; }
+#detail .note {
+  margin: 11px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-size: 10.5px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+
+@media (max-height: 760px) {
+  #panel { padding: 12px; }
+  #ranking { max-height: 28vh; }
+}
+@media (max-width: 640px) {
+  #panel, #ranking { width: calc(100vw - 28px); }
+  #ranking { max-height: 30vh; }
+  #detail { right: 14px; left: 14px; top: auto; bottom: 14px; width: auto; }
+}
+#suggest li.none {
+  color: var(--ink-3);
+  cursor: default;
+  font-size: 12px;
+}
+#suggest li.none:hover { background: none; }
+
+/* --- 画面中央の町丁目 --- */
+#here {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 14px;
+  background: var(--bg);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  white-space: nowrap;
+}
+#here .name { font-size: 13.5px; font-weight: 700; }
+#here .meta {
+  font-size: 11.5px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  #here { top: auto; bottom: 76px; font-size: 12px; }
+}

@@ -1,0 +1,19 @@
+[project]
+name = "machi-diff-pipeline"
+version = "0.1.0"
+description = "PLATEAU の建物データを年度間で差分し、街の変化を可視化するためのデータパイプライン"
+requires-python = ">=3.12"
+dependencies = [
+    "lxml>=5.0",
+    "pyarrow>=17.0",
+]
+
+[dependency-groups]
+# 差分エンジン以降で使う。抽出フェーズには不要なので分けている
+geo = [
+    "geopandas>=1.0",
+    "shapely>=2.0",
+]
+
+[tool.uv]
+package = false

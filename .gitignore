@@ -1,0 +1,17 @@
+# PLATEAU の生データ・中間生成物（数GB規模。PLATEAU から再取得可能なのでコミットしない）
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# OS
+.DS_Store
+
+# ビューアに配置したタイル（data/build から生成されるコピー）
+web/public/*.pmtiles

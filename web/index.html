@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>machi-diff — 世田谷区 2023→2025</title>
+    <style>
+      /* レイアウトの基礎は JS 注入の CSS を待たずに効かせる。
+         待つと地図の生成時にコンテナの高さが 0 になり、
+         canvas が MapLibre のフォールバック 400x300 に固定される */
+      html, body { margin: 0; height: 100%; }
+      #map { position: absolute; inset: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="panel">
+      <h1>街の変化</h1>
+      <p class="sub">世田谷区 2023年度 → 2025年度</p>
+      <div id="search">
+        <input id="q" type="search" placeholder="住所や町名で探す"
+               autocomplete="off" spellcheck="false">
+        <ul id="suggest" hidden></ul>
+      </div>
+      <div id="filters"></div>
+      <div id="basemaps">
+        <label class="row"><input type="radio" name="bm" value="pale" checked>
+          <span class="label">淡色地図</span></label>
+        <label class="row"><input type="radio" name="bm" value="photo">
+          <span class="label">空中写真</span></label>
+        <label class="row"><input type="radio" name="bm" value="none">
+          <span class="label">背景なし</span></label>
+      </div>
+      <div id="mode">
+        <label class="row"><input type="radio" name="view" value="2d" checked>
+          <span class="label">平面（分類）</span></label>
+        <label class="row"><input type="radio" name="view" value="3d">
+          <span class="label">3D（年度比較）</span></label>
+      </div>
+      <div id="years" hidden>
+        <label class="row"><input type="radio" name="year" value="2023">
+          <span class="label">2023年度</span></label>
+        <label class="row"><input type="radio" name="year" value="2025" checked>
+          <span class="label">2025年度</span></label>
+
+      </div>
+      <p class="hint">建物をクリックすると詳細が出ます</p>
+      <details id="about">
+        <summary>この地図について</summary>
+        <p>
+          PLATEAU の 2023年度版と 2025年度版を重ね、建物の輪郭が
+          消えた・あらわれた・形が変わった場所を拾っています。
+          元データに解体や着工の記録は無いので、
+          そこで何が起きたかまでは分かりません。
+        </p>
+      </details>
+    </div>
+    <details id="ranking" open>
+      <summary>変化率ランキング</summary>
+      <p class="sub">町丁目別・総建物数300棟以上</p>
+      <ol id="rank-list"></ol>
+    </details>
+    <div id="here" hidden>
+      <span class="name"></span>
+      <span class="meta"></span>
+    </div>
+    <div id="detail" hidden></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
