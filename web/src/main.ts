@@ -68,6 +68,11 @@ const map = new maplibregl.Map({
   // MSAA。既定は false で、3Dの建物は斜めの稜線が多いため
   // 切ったままだと輪郭が階段状に見える（MapLibre v5 でここへ移動）
   canvasContextAttributes: { antialias: true },
+  // 既定は60度。ビルの間を覗き込む視点まで寝かせられるようにする
+  maxPitch: 85,
+  // 既定の出典表示を切り、縮尺 → 出典 → 拡大縮小 の順で自分で積む。
+  // 下端のコントロールは追加順に下から積まれる
+  attributionControl: false,
   hash: true, // ズーム・中心座標を URL ハッシュへ自動同期
   center: [139.653, 35.646],
   zoom: 14,
@@ -288,12 +293,14 @@ if (import.meta.env.DEV) {
 }
 
 // 読み込み失敗を握り潰さない（タイル欠損は通常運用でも起きる）
+map.addControl(new maplibregl.ScaleControl({ maxWidth: 110 }), "bottom-right");
+map.addControl(new maplibregl.AttributionControl({ compact: false }), "bottom-right");
+map.addControl(new maplibregl.NavigationControl(), "bottom-right");
+
 map.on("error", (e) => {
   console.error("[map error]", e.error?.message ?? e);
 });
 
-map.addControl(new maplibregl.NavigationControl(), "bottom-right");
-map.addControl(new maplibregl.ScaleControl({ maxWidth: 110 }), "bottom-right");
 
 function applyFilter() {
   const shown = [...visible];
@@ -536,6 +543,7 @@ function setMode(mode: string) {
   if (is3d) {
     applyYear();
     applyFilter();
+    showRotateHint();
     if (map.getPitch() < 30) {
       requestAnimationFrame(() =>
         map.easeTo({ pitch: 60, zoom: Math.max(map.getZoom(), 16), duration: 900 }),
@@ -804,3 +812,20 @@ map.on("moveend", () => updateHere());
 // スタイル再構築でフィルタが飛ぶので、そのたびに貼り直す
 map.on("styledata", () => updateHere(true));
 void loadShapes();
+
+// --- 操作の案内 -----------------------------------------------------------
+// 右ドラッグで回せることは言われないと気づかない。3Dに入った初回だけ出す
+function showRotateHint() {
+  if (localStorage.getItem("machi-diff.rotate-hint") === "seen") return;
+  const el = document.createElement("div");
+  el.id = "rotate-hint";
+  el.textContent = "右ドラッグで回転・傾き";
+  document.body.appendChild(el);
+  window.setTimeout(() => el.classList.add("fade"), 4200);
+  window.setTimeout(() => el.remove(), 5200);
+  try {
+    localStorage.setItem("machi-diff.rotate-hint", "seen");
+  } catch {
+    // プライベートウィンドウ等で保存できなくても案内自体は出す
+  }
+}
