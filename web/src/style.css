@@ -1,20 +1,20 @@
 /* machi-diff
-   Shape Consistency Lock : パネル 14px / 行と入力 8px / ボタン pill
-   Color Consistency Lock : アクセントは地図の「あらわれた」と同じ #4a80c4 のみ
-   Page Theme Lock        : light 固定（地図の地面が明色のため dark は成立しない） */
+   Shape Consistency Lock : パネル 0 / 行 8px / セグメント pill
+   Color Consistency Lock : UI のアクセントは #4a80c4 のみ。
+                            地図の色（変化・用途・地面）は凡例が担当する
+   Page Theme Lock        : light 固定（地図の地面が明色のため） */
 
 :root {
-  --bg: rgba(252, 252, 251, 0.93);
+  --bg: #fbfaf8;
+  --bg-float: rgba(251, 250, 248, 0.94);
   --ink: #23211e;
   --ink-2: #6a675f;
   --ink-3: #9a968c;
   --line: rgba(35, 33, 30, 0.1);
   --accent: #4a80c4;
-  --r-panel: 14px;
-  --r-row: 8px;
-  --shadow: 0 1px 2px rgba(35, 33, 30, 0.06),
-            0 8px 28px rgba(35, 33, 30, 0.1);
-  --pad: 16px;
+  --r: 8px;
+  --shadow: 0 1px 2px rgba(35, 33, 30, 0.06), 0 8px 28px rgba(35, 33, 30, 0.1);
+  --side: 268px;
 }
 
 * { box-sizing: border-box; }
@@ -24,41 +24,117 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
-#map { position: absolute; inset: 0; }
-
-/* --- パネル共通 --- */
-#panel, #ranking, #detail {
+#map {
   position: absolute;
-  z-index: 2;
-  background: var(--bg);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid var(--line);
-  border-radius: var(--r-panel);
-  box-shadow: var(--shadow);
+  inset: 0 0 0 var(--side);
+  transition: left 0.24s ease;
 }
+body.panel-closed { --side: 0px; }
+body.panel-closed #panel { transform: translateX(-100%); }
 
+/* --- サイドバー --- */
 #panel {
-  top: 14px;
-  left: 14px;
-  width: 244px;
-  max-height: calc(100vh - 90px);
+  position: absolute;
+  z-index: 3;
+  transition: transform 0.24s ease;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--side);
+  padding: 18px 18px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--pad);
+  background: var(--bg);
+  border-right: 1px solid var(--line);
 }
-#panel h1 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+#panel header { margin-bottom: 16px; padding-right: 28px; }
+
+/* --- 開閉ボタン --- */
+#panel-toggle {
+  position: absolute;
+  z-index: 4;
+  top: 14px;
+  left: calc(var(--side) + 12px);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: var(--bg-float);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: left 0.24s ease;
 }
-.sub {
-  margin: 3px 0 0;
-  font-size: 11.5px;
+body:not(.panel-closed) #panel-toggle {
+  left: calc(var(--side) - 42px);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+#panel-toggle span,
+#panel-toggle span::before,
+#panel-toggle span::after {
+  display: block;
+  height: 1.5px;
+  background: var(--ink-2);
+  border-radius: 1px;
+}
+#panel-toggle span {
+  position: relative;
+  width: 14px;
+  margin: 0 auto;
+}
+#panel-toggle span::before,
+#panel-toggle span::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 14px;
+}
+#panel-toggle span::before { top: -4.5px; }
+#panel-toggle span::after { top: 4.5px; }
+#panel-toggle:hover span,
+#panel-toggle:hover span::before,
+#panel-toggle:hover span::after { background: var(--ink); }
+#panel h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: 0.01em; }
+.sub { margin: 3px 0 0; font-size: 11.5px; color: var(--ink-2); }
+#panel section { margin-top: 18px; }
+.group-label {
+  margin: 0 0 7px;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* --- セグメント（排他選択） --- */
+.seg {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  background: rgba(35, 33, 30, 0.05);
+  border-radius: 10px;
+}
+.seg label { flex: 1; position: relative; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span {
+  display: block;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 12.5px;
   color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.14s, color 0.14s;
 }
+.seg span:hover { color: var(--ink); }
+.seg input:checked + span {
+  background: #fff;
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(35, 33, 30, 0.1);
+}
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* --- 検索 --- */
 #search { position: relative; margin-top: 14px; }
@@ -70,7 +146,7 @@ body {
   color: var(--ink);
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: var(--r-row);
+  border-radius: var(--r);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -84,15 +160,15 @@ body {
   top: calc(100% + 5px);
   left: 0;
   right: 0;
-  z-index: 3;
+  z-index: 4;
   margin: 0;
   padding: 4px;
   list-style: none;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: var(--r-row);
+  border-radius: var(--r);
   box-shadow: var(--shadow);
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
 }
 #suggest li {
@@ -102,92 +178,128 @@ body {
   cursor: pointer;
 }
 #suggest li:hover { background: rgba(74, 128, 196, 0.1); }
-#suggest em { font-style: normal; font-size: 10.5px; color: var(--ink-3); }
+#suggest li.none { color: var(--ink-3); cursor: default; }
+#suggest li.none:hover { background: none; }
 
-/* --- 凡例とモード --- */
-#filters { margin-top: 14px; }
+/* --- チェック行（変化の絞り込み） --- */
 .row {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 4px 2px;
-  border-radius: var(--r-row);
+  padding: 5px 2px;
+  border-radius: var(--r);
   cursor: pointer;
 }
 .row input { margin: 0; accent-color: var(--accent); cursor: pointer; }
 .swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-.label { font-size: 13px; flex: 1; }
-.count {
-  font-size: 11px;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
+.label { font-size: 12.5px; flex: 1; }
+.count { font-size: 11px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .row.off .label, .row.off .count { opacity: 0.38; }
 
-#basemaps, #mode, #years {
-  margin-top: 12px;
-  padding-top: 11px;
-  border-top: 1px solid var(--line);
-}
-.hint { margin: 9px 0 0; font-size: 11px; color: var(--ink-3); }
+.inactive { opacity: 0.34; pointer-events: none; }
 
 /* --- この地図について --- */
 #about {
-  margin-top: 12px;
-  padding-top: 11px;
+  margin-top: 20px;
+  padding-top: 14px;
   border-top: 1px solid var(--line);
   font-size: 11px;
   color: var(--ink-2);
 }
-#about summary {
+#about summary,
+#legend summary,
+#ranking summary {
   cursor: pointer;
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 5px;
-  color: var(--ink-3);
+  gap: 6px;
 }
-#about summary::-webkit-details-marker { display: none; }
-#about summary::before {
+#about summary::-webkit-details-marker,
+#legend summary::-webkit-details-marker,
+#ranking summary::-webkit-details-marker { display: none; }
+#about summary::before,
+#legend summary::before,
+#ranking summary::before {
   content: "";
   width: 5px;
   height: 5px;
-  border-right: 1.2px solid currentColor;
-  border-bottom: 1.2px solid currentColor;
+  border-right: 1.3px solid currentColor;
+  border-bottom: 1.3px solid currentColor;
   transform: rotate(-45deg);
   transition: transform 0.16s;
+  flex: none;
 }
-#about[open] summary::before { transform: rotate(45deg); }
+#about[open] summary::before,
+#legend[open] summary::before,
+#ranking[open] summary::before { transform: rotate(45deg); }
+#about summary { color: var(--ink-3); }
 #about p { margin: 8px 0 0; line-height: 1.65; }
+
+/* --- 地図上の浮きパネル共通 --- */
+#legend, #ranking, #detail, #here {
+  position: absolute;
+  z-index: 2;
+  background: var(--bg-float);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+/* --- 凡例 --- */
+#legend {
+  left: calc(var(--side) + 14px);
+  bottom: 14px;
+  transition: left 0.24s ease;
+  width: 208px;
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  padding: 11px 8px 11px 14px;
+  overflow: hidden;
+}
+#legend summary { font-size: 12.5px; font-weight: 700; flex: none; }
+#legend-body {
+  min-height: 0;
+  margin-top: 8px;
+  padding-right: 6px;
+  overflow-y: auto;
+}
+#legend .group-label { margin: 10px 0 5px; }
+#legend .group-label:first-child { margin-top: 0; }
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 2px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.legend-row input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+.legend-row.off { opacity: 0.36; }
+.legend-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1; }
 
 /* --- ランキング --- */
 #ranking {
-  left: 14px;
+  right: 14px;
   bottom: 14px;
-  width: 244px;
-  max-height: 36vh;
+  width: 236px;
+  max-height: 44vh;
   display: flex;
   flex-direction: column;
-  padding: 12px 8px 12px var(--pad);
+  padding: 11px 8px 11px 14px;
   overflow: hidden;
 }
-#ranking summary {
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  list-style: none;
-  white-space: nowrap;
-  flex: none;
-}
-#ranking summary::-webkit-details-marker { display: none; }
+#ranking summary { font-size: 12.5px; font-weight: 700; flex: none; }
 #ranking > .sub { flex: none; }
 #ranking:not([open]) { max-height: none; }
 #ranking:not([open]) > .sub { display: none; }
-
 #rank-list {
   min-height: 0;
-  margin: 9px 0 0;
-  padding: 0 8px 0 0;
+  margin: 8px 0 0;
+  padding: 0 6px 0 0;
   list-style: none;
   overflow-y: auto;
   counter-reset: rank;
@@ -199,7 +311,7 @@ body {
   align-items: center;
   gap: 3px 7px;
   padding: 4px 5px;
-  border-radius: var(--r-row);
+  border-radius: var(--r);
   cursor: pointer;
   font-size: 12.5px;
 }
@@ -212,11 +324,7 @@ body {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-#rank-list .rate {
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-  font-size: 11.5px;
-}
+#rank-list .rate { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 11.5px; }
 #rank-list .meter {
   grid-column: 2 / -1;
   height: 2.5px;
@@ -225,14 +333,25 @@ body {
   opacity: 0.4;
 }
 
-/* --- 建物の詳細 --- */
-#detail {
-  right: 14px;
+/* --- 現在地 --- */
+#here {
   top: 14px;
-  width: 236px;
-  padding: var(--pad);
-  font-size: 12.5px;
+  left: calc(var(--side) + (100% - var(--side)) / 2);
+  transition: left 0.24s ease;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  pointer-events: none;
+  white-space: nowrap;
 }
+#here .name { font-size: 13.5px; font-weight: 700; }
+#here .meta { font-size: 11.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* --- 建物の詳細 --- */
+#detail { right: 14px; top: 14px; width: 232px; padding: 14px; font-size: 12.5px; }
 #detail h2 {
   margin: 0 0 10px;
   font-size: 13px;
@@ -241,18 +360,8 @@ body {
   align-items: center;
   gap: 7px;
 }
-#detail h2 .dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  flex: none;
-}
-#detail dl {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 5px 12px;
-  margin: 0;
-}
+#detail h2 .dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+#detail dl { display: grid; grid-template-columns: auto 1fr; gap: 5px 12px; margin: 0; }
 #detail dt { color: var(--ink-2); }
 #detail dd { margin: 0; font-variant-numeric: tabular-nums; }
 #detail .note {
@@ -264,78 +373,19 @@ body {
   color: var(--ink-3);
 }
 
-@media (max-height: 760px) {
-  #panel { padding: 12px; }
-  #panel .row { padding: 3px 2px; }
-  #ranking { max-height: 30vh; }
-}
-@media (max-width: 640px) {
-  #panel, #ranking { width: calc(100vw - 28px); }
-  #ranking { max-height: 30vh; }
-  #detail { right: 14px; left: 14px; top: auto; bottom: 14px; width: auto; }
-}
-#suggest li.none {
-  color: var(--ink-3);
-  cursor: default;
-  font-size: 12px;
-}
-#suggest li.none:hover { background: none; }
-
-/* --- 画面中央の町丁目 --- */
-#here {
-  position: absolute;
-  z-index: 2;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 7px 14px;
-  background: var(--bg);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  box-shadow: var(--shadow);
-  pointer-events: none;
-  white-space: nowrap;
-}
-#here .name { font-size: 13.5px; font-weight: 700; }
-#here .meta {
-  font-size: 11.5px;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
-@media (max-width: 640px) {
-  #here { top: auto; bottom: 76px; font-size: 12px; }
-}
-
-/* モードによって効かない操作は、消さずに淡くして位置を保つ */
-.inactive {
-  opacity: 0.32;
-  pointer-events: none;
-}
-
-.group-label {
-  margin: 0 0 5px;
-  font-size: 10.5px;
-  color: var(--ink-3);
-  letter-spacing: 0.02em;
-}
-
+/* --- 操作案内 --- */
 #rotate-hint {
   position: absolute;
   z-index: 2;
-  left: 50%;
+  left: calc(var(--side) + (100% - var(--side)) / 2);
   bottom: 26px;
   transform: translateX(-50%);
   padding: 7px 14px;
   font-size: 12px;
   color: var(--ink-2);
-  background: var(--bg);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  background: var(--bg-float);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--line);
   border-radius: 999px;
   box-shadow: var(--shadow);
@@ -344,3 +394,33 @@ body {
   transition: opacity 0.8s;
 }
 #rotate-hint.fade { opacity: 0; }
+
+/* 出典と縮尺が重なるので下端のコントロールを縦に積み直す */
+.maplibregl-ctrl-bottom-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl { margin: 0 10px 8px 0; }
+.maplibregl-ctrl-attrib { max-width: min(46vw, 380px); }
+
+@media (max-width: 780px) {
+  :root { --side: 0px; }
+  #map { inset: 0; }
+  #panel {
+    right: 0;
+    bottom: auto;
+    width: auto;
+    max-height: 46vh;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  #legend, #ranking { max-height: 32vh; }
+  #legend { left: 14px; }
+  #here, #rotate-hint { left: 50%; }
+  #here { top: auto; bottom: 84px; }
+  #detail { right: 14px; left: 14px; top: auto; bottom: 14px; width: auto; }
+}
+
+#filters { margin-top: 10px; }
+#legend[hidden] { display: none; }

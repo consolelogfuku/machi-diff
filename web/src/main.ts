@@ -5,12 +5,47 @@ import "./style.css";
 
 // 差分の5分類。順序はそのまま凡例の並びになる
 const CATEGORIES = [
-  { id: "appeared", label: "あらわれた", color: "#2563eb" },
+  { id: "appeared", label: "新築", color: "#2563eb" },
   { id: "changed", label: "変わった", color: "#f59e0b" },
-  { id: "gone", label: "消えた", color: "#dc2626" },
+  { id: "gone", label: "解体", color: "#dc2626" },
 ] as const;
 
 type CategoryId = (typeof CATEGORIES)[number]["id"];
+
+// 用途15種。変化の色（青・橙・赤）と混同しないよう、
+// 紫・青緑・砂・灰の系統でまとめている
+const USAGES = [
+  { id: "411", label: "住宅", color: "#d2b184" },
+  { id: "412", label: "共同住宅", color: "#bb9560" },
+  { id: "413", label: "店舗等併用住宅", color: "#a67f52" },
+  { id: "414", label: "店舗等併用共同住宅", color: "#8e6b45" },
+  { id: "415", label: "作業所併用住宅", color: "#75573a" },
+  { id: "401", label: "業務施設", color: "#7d6ea8" },
+  { id: "402", label: "商業施設", color: "#a25f95" },
+  { id: "403", label: "宿泊施設", color: "#b87fae" },
+  { id: "404", label: "商業系複合施設", color: "#8a5686" },
+  { id: "421", label: "官公庁施設", color: "#4a8f88" },
+  { id: "422", label: "文教厚生施設", color: "#5fa99a" },
+  { id: "431", label: "運輸倉庫施設", color: "#6d8296" },
+  { id: "441", label: "工場", color: "#7d8b6c" },
+  { id: "451", label: "農林漁業用施設", color: "#93a46d" },
+  { id: "452", label: "供給処理施設", color: "#6f7a85" },
+  { id: "453", label: "防衛施設", color: "#575e69" },
+  { id: "454", label: "その他", color: "#aaa49a" },
+  { id: "461", label: "不明", color: "#c6c1b8" },
+] as const;
+
+// 変化なしの建物の色。街並みとして残すので彩度を持たせない
+const NEUTRAL = "#c8c3ba";
+
+// 地面の彩色の凡例。土地利用の区分をそのまま出す
+const GROUND_LEGEND = [
+  { label: "公園・緑地", color: "#8fc47a" },
+  { label: "山林", color: "#6fa361" },
+  { label: "畑・樹園地", color: "#c9d79a" },
+  { label: "水面", color: "#8fc7e8" },
+  { label: "空地", color: "#e2e0d2" },
+] as const;
 
 // pmtiles:// スキームを MapLibre に登録する。
 // これで .pmtiles 1ファイルへの Range リクエストだけでタイルが引ける
@@ -29,11 +64,30 @@ const visible = new Set<CategoryId>(
 );
 
 
-/** status -> 色 の match 式。spread ではタプル型が合わないので明示的に組む */
-function colorExpression(): maplibregl.DataDrivenPropertyValueSpecification<string> {
+// 「見え方（平面/3D）」と「表示形式（変化/用途）」は独立した軸にしてある。
+// 画面を分けずに済み、視点を保ったまま見たいものを切り替えられる
+let palette: "change" | "usage" = "change";
+
+const visibleUsages = new Set<string>(USAGES.map((u) => u.id));
+
+/** 用途で塗る式。選択を外した用途は消さずに中立色へ落とす。
+ *  建物が抜けると街の形が崩れて位置が分からなくなるため */
+function usageColorExpression(): maplibregl.DataDrivenPropertyValueSpecification<string> {
+  const expr: unknown[] = ["match", ["get", "usage"]];
+  for (const u of USAGES) {
+    expr.push(u.id, visibleUsages.has(u.id) ? u.color : NEUTRAL);
+  }
+  expr.push(NEUTRAL);
+  return expr as maplibregl.DataDrivenPropertyValueSpecification<string>;
+}
+
+/** 変化で塗る式。選択を外した分類も同様に中立色へ */
+function buildingChangeColor(): maplibregl.DataDrivenPropertyValueSpecification<string> {
   const expr: unknown[] = ["match", ["get", "status"]];
-  for (const c of CATEGORIES) expr.push(c.id, c.color);
-  expr.push("#999999");
+  for (const c of CATEGORIES) {
+    expr.push(c.id, visible.has(c.id) ? c.color : NEUTRAL);
+  }
+  expr.push(NEUTRAL);
   return expr as maplibregl.DataDrivenPropertyValueSpecification<string>;
 }
 
@@ -47,8 +101,7 @@ const vis = (kind: string) =>
   (initialBasemap === kind ? "visible" : "none") as "visible" | "none";
 
 /** 年度 t (0=2023, 1=2025) における建物の高さ式。
- *  消える建物は 1→0 に縮み、現れる建物は 0→1 に伸びる。
- *  paint のトランジションに任せるので毎フレーム更新は不要。 */
+ *  消える建物は 1→0 に縮み、現れる建物は 0→1 に伸びる。 */
 function heightAt(t: number): maplibregl.DataDrivenPropertyValueSpecification<number> {
   const expr = [
     "*",
@@ -119,12 +172,6 @@ const map = new maplibregl.Map({
         attribution:
           '<a href="https://www.mlit.go.jp/plateau/">Project PLATEAU</a>',
       },
-      changes: {
-        type: "vector",
-        url: "pmtiles://" + location.origin + "/diff.pmtiles",
-        attribution:
-          '<a href="https://www.mlit.go.jp/plateau/">Project PLATEAU</a>',
-      },
     },
     sky: {
       "sky-color": "#8ec5ea",
@@ -178,17 +225,17 @@ const map = new maplibregl.Map({
         },
       },
       {
-        id: "town-active-fill",
+        id: "town-dim",
         type: "fill",
         source: "towns",
         "source-layer": "towns",
-        filter: ["==", ["get", "town"], ""],
+        // 現在地「以外」を覆う。色を足さず明暗だけで領域を示すので、
+        // 建物の色分けと喧嘩しない
+        filter: ["!=", ["get", "town"], "\u0000"],
         layout: { visibility: "none" as const },
         paint: {
-          // 塗り分けの上にアクセント色を薄く重ねる。
-          // 建物の色を邪魔しない濃さに留める
-          "fill-color": "#4a80c4",
-          "fill-opacity": 0.14,
+          "fill-color": "#2b2a26",
+          "fill-opacity": 0.13,
         },
       },
       {
@@ -198,9 +245,9 @@ const map = new maplibregl.Map({
         "source-layer": "towns",
         layout: { visibility: "none" as const, "line-join": "round" as const },
         paint: {
-          "line-color": "#8f9a86",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.7, 17, 1.4],
-          "line-opacity": 0.45,
+          "line-color": "#ffffff",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.8, 17, 1.8],
+          "line-opacity": 0.75,
         },
       },
       {
@@ -267,20 +314,17 @@ const map = new maplibregl.Map({
         },
       },
       {
-        id: "changes-fill",
+        id: "buildings-2d",
         type: "fill",
-        source: "changes",
-        "source-layer": "changes",
-        paint: {
-          "fill-color": colorExpression(),
-          "fill-opacity": 0.75,
-        },
+        source: "buildings3d",
+        "source-layer": "buildings",
+        paint: { "fill-color": NEUTRAL, "fill-opacity": 0.9 },
       },
       {
-        id: "changes-outline",
+        id: "buildings-2d-outline",
         type: "line",
-        source: "changes",
-        "source-layer": "changes",
+        source: "buildings3d",
+        "source-layer": "buildings",
         paint: { "line-color": "#ffffff", "line-width": 0.4 },
       },
     ],
@@ -294,7 +338,7 @@ if (import.meta.env.DEV) {
 
 // 読み込み失敗を握り潰さない（タイル欠損は通常運用でも起きる）
 map.addControl(new maplibregl.ScaleControl({ maxWidth: 110 }), "bottom-right");
-map.addControl(new maplibregl.AttributionControl({ compact: false }), "bottom-right");
+map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 map.addControl(new maplibregl.NavigationControl(), "bottom-right");
 
 map.on("error", (e) => {
@@ -303,60 +347,78 @@ map.on("error", (e) => {
 
 
 function applyFilter() {
+  const year = currentYear();
   const shown = [...visible];
-  // 何も選ばれていないときは全部隠す
-  const expr: maplibregl.FilterSpecification =
-    shown.length === 0
-      ? ["==", ["get", "status"], "__none__"]
-      : ["in", ["get", "status"], ["literal", shown]];
-  map.setFilter("changes-fill", expr);
-  map.setFilter("changes-outline", expr);
-  // 3D でも同じ絞り込みを効かせる。変化なしの建物は街並みとして常に残す
-  if (map.getLayer("buildings-3d")) {
-    map.setFilter("buildings-3d", [
-      "all",
-      [
-        "!",
-        ["all", ["==", ["get", "year"], 2023], ["==", ["get", "status"], "unchanged"]],
-      ],
-      ["any", ["==", ["get", "status"], "unchanged"], expr],
-    ]);
+
+  // その年度に存在する建物だけを残す。
+  // 変化なしの建物は2023側にも同じ形で入っているので2025側を採用する
+  const yearFilter: unknown[] = [
+    "any",
+    ["==", ["get", "year"], year],
+    ["all", ["==", ["get", "status"], "unchanged"], ["==", ["get", "year"], 2025]],
+  ];
+
+  // 選択を外した分類は隠さず中立色に落とす（街の形を保つため）
+  const expr: unknown[] =
+    shown.length === CATEGORIES.length
+      ? ["literal", true]
+      : ["any", ["==", ["get", "status"], "unchanged"],
+         ["in", ["get", "status"], ["literal", shown]]];
+
+  for (const id of ["buildings-2d", "buildings-2d-outline", "buildings-3d"]) {
+    if (map.getLayer(id)) {
+      map.setFilter(id, yearFilter as maplibregl.FilterSpecification);
+    }
   }
+  void expr;
+  applyPaletteColors();
 
   params.set("show", shown.join(","));
   history.replaceState(null, "", `?${params}${location.hash}`);
 }
 
-function buildPanel() {
+/** 表示形式に応じた選択リストを組み立てる。
+ *  変化なら3種、用途なら18種。どちらも選択を外すと中立色に落ちる */
+function buildFilters() {
   const box = document.getElementById("filters")!;
-  for (const c of CATEGORIES) {
+  box.innerHTML = "";
+
+  const items =
+    palette === "usage"
+      ? USAGES.map((u) => ({
+          id: u.id as string,
+          label: u.label as string,
+          color: u.color as string,
+          set: visibleUsages,
+        }))
+      : CATEGORIES.map((c) => ({
+          id: c.id as string,
+          label: c.label as string,
+          color: c.color as string,
+          set: visible as Set<string>,
+        }));
+
+  for (const item of items) {
+    const on = item.set.has(item.id);
     const row = document.createElement("label");
     row.className = "row";
+    row.classList.toggle("off", !on);
     row.innerHTML = `
-      <input type="checkbox" ${visible.has(c.id) ? "checked" : ""}>
-      <span class="swatch" style="background:${c.color}"></span>
-      <span class="label">${c.label}</span>
-      <span class="count" data-count="${c.id}">—</span>`;
+      <input type="checkbox" ${on ? "checked" : ""}>
+      <span class="swatch" style="background:${item.color}"></span>
+      <span class="label">${item.label}</span>
+      <span class="count" data-count="${item.id}"></span>`;
     row.querySelector("input")!.addEventListener("change", (e) => {
-      const on = (e.target as HTMLInputElement).checked;
-      on ? visible.add(c.id) : visible.delete(c.id);
-      row.classList.toggle("off", !on);
-      applyFilter();
+      const checked = (e.target as HTMLInputElement).checked;
+      checked ? item.set.add(item.id) : item.set.delete(item.id);
+      row.classList.toggle("off", !checked);
+      applyPaletteColors();
+      updateCounts();
     });
-    row.classList.toggle("off", !visible.has(c.id));
     box.appendChild(row);
   }
+  updateCounts();
 }
-
-// 用途コード（Building_usage.xml より）
-const USAGE: Record<string, string> = {
-  "401": "業務施設", "402": "商業施設", "403": "宿泊施設",
-  "404": "商業系複合施設", "411": "住宅", "412": "共同住宅",
-  "413": "店舗等併用住宅", "414": "店舗等併用共同住宅",
-  "415": "作業所併用住宅", "421": "官公庁施設", "422": "文教厚生施設",
-  "431": "運輸倉庫施設", "441": "工場", "451": "農林漁業用施設",
-  "452": "供給処理施設", "453": "防衛施設", "454": "その他", "461": "不明",
-};
 
 /** 詳細パネルの行。値が null の行は出さない */
 function detailRows(p: Record<string, unknown>): [string, string][] {
@@ -379,7 +441,10 @@ function detailRows(p: Record<string, unknown>): [string, string][] {
     rows.push(["階数", `${sn}階`]);
   }
 
-  if (p.usage) rows.push(["用途", USAGE[String(p.usage)] ?? String(p.usage)]);
+  if (p.usage) {
+    const u = USAGES.find((x) => x.id === String(p.usage));
+    rows.push(["用途", u?.label ?? String(p.usage)]);
+  }
   if (p.town) rows.push(["町丁目", String(p.town).replace("東京都世田谷区", "")]);
   const fd = num(p.flood_depth);
   if (fd !== null) {
@@ -404,7 +469,7 @@ function showDetail(props: Record<string, unknown>) {
   el.hidden = false;
 }
 
-for (const layer of ["changes-fill", "buildings-3d"]) {
+for (const layer of ["buildings-2d", "buildings-3d"]) {
   map.on("click", layer, (e) => {
     if (e.features?.[0]) showDetail(e.features[0].properties);
   });
@@ -418,7 +483,7 @@ for (const layer of ["changes-fill", "buildings-3d"]) {
 // 何もない場所をクリックしたら詳細を閉じる
 map.on("click", (e) => {
   const hit = map.queryRenderedFeatures(e.point, {
-    layers: ["changes-fill", "buildings-3d"].filter((l) => map.getLayer(l)),
+    layers: ["buildings-2d", "buildings-3d"].filter((l) => map.getLayer(l)),
   });
   if (hit.length === 0) document.getElementById("detail")!.hidden = true;
 });
@@ -429,7 +494,7 @@ new ResizeObserver(() => map.resize()).observe(document.getElementById("map")!);
 // パネルは地図の読み込み状況と無関係に組み立てる。
 // 背景タイルが応答しない場合 load は発火しないため、
 // ここを load に依存させると UI ごと死ぬ
-buildPanel();
+buildFilters();
 if (map.isStyleLoaded()) {
   applyFilter();
 } else {
@@ -439,17 +504,20 @@ if (map.isStyleLoaded()) {
 map.on("idle", updateCounts);
 
 function updateCounts() {
-  if (!map.isSourceLoaded("changes")) return;
-  const feats = map.querySourceFeatures("changes", { sourceLayer: "changes" });
+  if (!map.getSource("buildings3d") || !map.isSourceLoaded("buildings3d")) return;
+  const feats = map.querySourceFeatures("buildings3d", {
+    sourceLayer: "buildings",
+  });
+  const key = palette === "usage" ? "usage" : "status";
   const tally = new Map<string, Set<unknown>>();
   for (const f of feats) {
-    const s = f.properties?.status as string;
-    if (!tally.has(s)) tally.set(s, new Set());
-    tally.get(s)!.add(f.properties?.building_id);
+    const v = String(f.properties?.[key] ?? "");
+    if (!tally.has(v)) tally.set(v, new Set());
+    tally.get(v)!.add(f.properties?.building_id ?? f.id);
   }
-  for (const c of CATEGORIES) {
-    const el = document.querySelector(`[data-count="${c.id}"]`);
-    if (el) el.textContent = (tally.get(c.id)?.size ?? 0).toLocaleString();
+  for (const el of document.querySelectorAll<HTMLElement>("[data-count]")) {
+    const n = tally.get(el.dataset.count ?? "")?.size ?? 0;
+    el.textContent = n ? n.toLocaleString() : "";
   }
 }
 
@@ -512,11 +580,11 @@ void buildRanking();
 // 3D は「分類」ではなく、2023年と2025年の建物そのものを押し出して見比べる。
 // 建て替えか解体+新築かはデータからは判定できないため、
 // ラベルで断定せず形の変化を直接見せる
-const FLAT_LAYERS = ["changes-fill", "changes-outline"];
+const FLAT_LAYERS = ["buildings-2d", "buildings-2d-outline"];
 const GAME_LAYERS = [
   "ground",
+  "town-dim",
   "town-hairline",
-  "town-active-fill",
   "landuse-fill",
   "trees-trunk",
   "trees-canopy",
@@ -534,34 +602,45 @@ function setMode(mode: string) {
   show("basemap-pale", !is3d && currentBasemap === "pale");
   show("basemap-photo", !is3d && currentBasemap === "photo");
 
-  // 項目の出し入れはせず、その表示で効かないものだけ淡くする。
-  // モードで UI が入れ替わると操作の見当がつかなくなるため
-  document.getElementById("years")!.classList.toggle("inactive", !is3d);
-  document.getElementById("filters")!.classList.remove("inactive");
+  // 年度・色分け・絞り込みはすべて両モードで効く。
+  // 淡くするのは背景地図だけ（3Dでは自前の地面を使うため）
   document.getElementById("basemaps")!.classList.toggle("inactive", is3d);
 
   if (is3d) {
     applyYear();
     applyFilter();
     showRotateHint();
+    renderLegend();
     if (map.getPitch() < 30) {
       requestAnimationFrame(() =>
         map.easeTo({ pitch: 60, zoom: Math.max(map.getZoom(), 16), duration: 900 }),
       );
     }
-  } else if (map.getPitch() > 0) {
-    map.easeTo({ pitch: 0, duration: 600 });
+  } else {
+    renderLegend();
+    if (map.getPitch() > 0) map.easeTo({ pitch: 0, duration: 600 });
   }
   params.set("mode", mode);
   history.replaceState(null, "", `?${params}${location.hash}`);
 }
 
-function applyYear() {
-  const year = Number(
+function currentYear(): number {
+  return Number(
     (document.querySelector('input[name="year"]:checked') as HTMLInputElement)
       .value,
   );
-  map.setPaintProperty("buildings-3d", "fill-extrusion-height", heightAt(year === 2025 ? 1 : 0));
+}
+
+function applyYear() {
+  const year = currentYear();
+  if (map.getLayer("buildings-3d")) {
+    map.setPaintProperty(
+      "buildings-3d",
+      "fill-extrusion-height",
+      heightAt(year === 2025 ? 1 : 0),
+    );
+  }
+  applyFilter();
   params.set("year", String(year));
   history.replaceState(null, "", `?${params}${location.hash}`);
 }
@@ -598,13 +677,16 @@ function setBasemap(kind: string) {
   show("basemap-photo", flat && kind === "photo");
   // 写真の上では建物の塗りが濃すぎると下が見えないので薄くする
   const onPhoto = kind === "photo";
-  map.setPaintProperty("changes-fill", "fill-opacity", onPhoto ? 0.45 : 0.75);
-  map.setPaintProperty(
-    "changes-outline",
-    "line-color",
-    onPhoto ? "#ffffff" : "#ffffff",
-  );
-  map.setPaintProperty("changes-outline", "line-width", onPhoto ? 1.2 : 0.4);
+  if (map.getLayer("buildings-2d")) {
+    map.setPaintProperty("buildings-2d", "fill-opacity", onPhoto ? 0.5 : 0.9);
+  }
+  if (map.getLayer("buildings-2d-outline")) {
+    map.setPaintProperty(
+      "buildings-2d-outline",
+      "line-width",
+      onPhoto ? 1 : 0.4,
+    );
+  }
   params.set("basemap", kind);
   history.replaceState(null, "", `?${params}${location.hash}`);
 }
@@ -769,11 +851,12 @@ function townAt(lng: number, lat: number): string {
 
 /** レイヤがまだ無い段階でも落ちないようにする */
 function setActiveTown(town: string) {
-  for (const id of ["town-active-fill"]) {
-    if (map.getLayer(id)) {
-      map.setFilter(id, ["==", ["get", "town"], town]);
-    }
-  }
+  if (!map.getLayer("town-dim")) return;
+  // 現在地以外を覆う。町名が空のときは何も覆わない
+  map.setFilter(
+    "town-dim",
+    town ? ["!=", ["get", "town"], town] : ["==", ["get", "town"], "\u0000"],
+  );
 }
 
 function updateHere(force = false) {
@@ -805,7 +888,11 @@ function updateHere(force = false) {
   if (rank >= 0) {
     const li = list?.children[rank] as HTMLElement | undefined;
     li?.classList.add("active");
-    li?.scrollIntoView({ block: "nearest" });
+    // 閉じた details の中へスクロールするとブラウザが勝手に開いてしまい、
+    // 手で閉じられなくなる。開いているときだけ追従させる
+    if ((document.getElementById("ranking") as HTMLDetailsElement).open) {
+      li?.scrollIntoView({ block: "nearest" });
+    }
   }
 }
 
@@ -858,3 +945,78 @@ function showRotateHint() {
     // プライベートウィンドウ等で保存できなくても案内自体は出す
   }
 }
+
+// --- 色分けの軸 -----------------------------------------------------------
+
+function applyPaletteColors() {
+  const usage = palette === "usage";
+  for (const [id, prop] of [
+    ["buildings-2d", "fill-color"],
+    ["buildings-3d", "fill-extrusion-color"],
+  ] as const) {
+    if (!map.getLayer(id)) continue;
+    map.setPaintProperty(
+      id,
+      prop,
+      usage
+        ? usageColorExpression()
+        : buildingChangeColor(),
+    );
+  }
+  // 用途で塗るときは変化の絞り込みが意味を持たないので淡くする
+  renderLegend();
+}
+
+function applyPalette() {
+  buildFilters();
+  applyPaletteColors();
+  params.set("palette", palette);
+  history.replaceState(null, "", `?${params}${location.hash}`);
+}
+
+function renderLegend() {
+  const box = document.getElementById("legend-body");
+  const panel = document.getElementById("legend") as HTMLDetailsElement | null;
+  if (!box || !panel) return;
+  const is3d =
+    document.querySelector<HTMLInputElement>('input[name="view"]:checked')
+      ?.value === "3d";
+
+  // 地面の彩色は3Dのときだけ出るので、凡例もそのときだけ意味を持つ
+  panel.hidden = !is3d;
+  if (!is3d) return;
+
+  box.innerHTML = GROUND_LEGEND.map(
+    (g) =>
+      `<div class="legend-row"><span class="swatch" style="background:${g.color}"></span>${g.label}</div>`,
+  ).join("");
+}
+
+function initPalette() {
+  const saved = params.get("palette") === "usage" ? "usage" : "change";
+  palette = saved;
+  for (const el of document.querySelectorAll<HTMLInputElement>(
+    'input[name="pal"]',
+  )) {
+    el.checked = el.value === saved;
+    el.addEventListener("change", () => {
+      if (!el.checked) return;
+      palette = el.value as "change" | "usage";
+      applyPalette();
+    });
+  }
+  const run = () => applyPalette();
+  if (map.isStyleLoaded()) run();
+  else map.once("styledata", run);
+}
+
+initPalette();
+
+// --- サイドバーの開閉 -----------------------------------------------------
+const toggle = document.getElementById("panel-toggle")!;
+toggle.addEventListener("click", () => {
+  const closed = document.body.classList.toggle("panel-closed");
+  toggle.setAttribute("aria-expanded", String(!closed));
+  // 地図の描画領域が変わるのでサイズを取り直す
+  window.setTimeout(() => map.resize(), 260);
+});

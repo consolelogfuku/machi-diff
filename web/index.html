@@ -14,40 +14,52 @@
   </head>
   <body>
     <div id="map"></div>
-    <div id="panel">
-      <h1>街の変化</h1>
-      <p class="sub">世田谷区 2023年度 → 2025年度</p>
+
+    <button id="panel-toggle" type="button" aria-label="サイドバーの開閉">
+      <span></span>
+    </button>
+    <aside id="panel">
       <div id="search">
+        <p class="group-label">町名で探す</p>
         <input id="q" type="search" placeholder="例: 世田谷一丁目"
                autocomplete="off" spellcheck="false">
         <ul id="suggest" hidden></ul>
       </div>
-      <div id="mode">
-        <label class="row"><input type="radio" name="view" value="2d" checked>
-          <span class="label">平面</span></label>
-        <label class="row"><input type="radio" name="view" value="3d">
-          <span class="label">3D</span></label>
-      </div>
-      <div id="years">
-        <p class="group-label">3Dで見る年度</p>
-        <label class="row"><input type="radio" name="year" value="2023">
-          <span class="label">2023年度</span></label>
-        <label class="row"><input type="radio" name="year" value="2025" checked>
-          <span class="label">2025年度</span></label>
-      </div>
-      <div id="filters">
-        <p class="group-label">2023年度からの変化</p>
-      </div>
-      <div id="basemaps">
+
+      <section id="years">
+        <p class="group-label">年度</p>
+        <div class="seg">
+          <label><input type="radio" name="year" value="2023"><span>2023</span></label>
+          <label><input type="radio" name="year" value="2025" checked><span>2025</span></label>
+        </div>
+      </section>
+
+      <section>
+        <p class="group-label">見え方</p>
+        <div class="seg" id="mode">
+          <label><input type="radio" name="view" value="2d" checked><span>平面</span></label>
+          <label><input type="radio" name="view" value="3d"><span>3D</span></label>
+        </div>
+      </section>
+
+      <section id="basemaps">
         <p class="group-label">背景</p>
-        <label class="row"><input type="radio" name="bm" value="pale" checked>
-          <span class="label">淡色地図</span></label>
-        <label class="row"><input type="radio" name="bm" value="photo">
-          <span class="label">空中写真</span></label>
-        <label class="row"><input type="radio" name="bm" value="none">
-          <span class="label">背景なし</span></label>
-      </div>
-      <p class="hint">建物をクリックすると詳細が出ます</p>
+        <div class="seg">
+          <label><input type="radio" name="bm" value="pale" checked><span>地図</span></label>
+          <label><input type="radio" name="bm" value="photo"><span>写真</span></label>
+          <label><input type="radio" name="bm" value="none"><span>なし</span></label>
+        </div>
+      </section>
+
+      <section>
+        <p class="group-label">表示形式</p>
+        <div class="seg" id="palette">
+          <label><input type="radio" name="pal" value="change" checked><span>街の変化</span></label>
+          <label><input type="radio" name="pal" value="usage"><span>建物の用途</span></label>
+        </div>
+        <div id="filters"></div>
+      </section>
+
       <details id="about">
         <summary>この地図について</summary>
         <p>
@@ -57,16 +69,24 @@
           そこで何が起きたかまでは分かりません。
         </p>
       </details>
+    </aside>
+
+    <div id="here" hidden>
+      <span class="name"></span>
+      <span class="meta"></span>
     </div>
+
+    <details id="legend">
+      <summary>凡例</summary>
+      <div id="legend-body"></div>
+    </details>
+
     <details id="ranking">
       <summary>変化率ランキング</summary>
       <p class="sub">町丁目別・総建物数300棟以上</p>
       <ol id="rank-list"></ol>
     </details>
-    <div id="here" hidden>
-      <span class="name"></span>
-      <span class="meta"></span>
-    </div>
+
     <div id="detail" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

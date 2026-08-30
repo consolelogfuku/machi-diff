@@ -45,6 +45,16 @@ SIMPLE = {
     "unchanged": "unchanged",
 }
 
+# 用途は15種類あるが、住宅系だけで83%を占める。
+# そのまま並べても大半が空振りするので、色分けに使える粒度へ束ねる
+USAGE_GROUP = {
+    "411": "home", "412": "home", "413": "home", "414": "home", "415": "home",
+    "401": "biz", "402": "biz", "403": "biz", "404": "biz",
+    "421": "public", "422": "public", "452": "public", "453": "public",
+    "431": "industry", "441": "industry", "451": "industry",
+    "454": "other", "461": "other",
+}
+
 KEEP_ATTRS = (
     "usage",
     "detailed_usage",
@@ -103,6 +113,7 @@ def feature(geom, status: str, old: dict | None, new: dict | None, score: float 
     }
     for k in KEEP_ATTRS:
         props[k] = src[k]
+    props["ug"] = USAGE_GROUP.get(str(src["usage"]), "other")
     if old and new:
         for k in PAIRED_ATTRS:
             if old[k] != new[k]:
@@ -338,6 +349,7 @@ def main() -> int:
                             # 押し出し高さ 0 だと地図から消えてしまうため
                             "height": r["measured_height"] or 3.0,
                             "usage": r["usage"],
+                            "ug": USAGE_GROUP.get(str(r["usage"]), "other"),
                             "town": r["town"],
                             "storeys": r["storeys_above_ground"],
                         },
