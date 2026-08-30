@@ -627,7 +627,35 @@ initBasemap();
 // --- 住所検索 -------------------------------------------------------------
 // 国土地理院の住所検索APIで番地まで引ける。町丁目は手元のランキングデータでも
 // 補完するので、APIが落ちても最低限は動く
-type Hit = { label: string; center: [number, number]; sub?: string };
+type Hit = { label: string; center: [number, number] };
+
+// 「一丁目・二丁目…」を数値順に並べる。漢数字のままだと辞書順で崩れる
+const KANJI: Record<string, number> = {
+  一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10,
+};
+/** 「世田谷一丁目」を [町名, 丁目番号] に分ける。丁目が無ければ番号は0 */
+function townKey(label: string): [string, number] {
+  const m = label.match(/^(.*?)([一二三四五六七八九十]+)丁目$/);
+  if (!m) return [label, 0];
+  const [, name, num] = m;
+  // 十一〜十九、二十〜 の桁上がりを処理する
+  let n: number;
+  const ten = num.indexOf("十");
+  if (ten === -1) {
+    n = KANJI[num] ?? 0;
+  } else {
+    const head = ten === 0 ? 1 : (KANJI[num[ten - 1]] ?? 1);
+    const tail = ten === num.length - 1 ? 0 : (KANJI[num[ten + 1]] ?? 0);
+    n = head * 10 + tail;
+  }
+  return [name, n];
+}
+
+function compareTown(a: string, b: string): number {
+  const [na, ia] = townKey(a);
+  const [nb, ib] = townKey(b);
+  return na === nb ? ia - ib : na.localeCompare(nb, "ja");
+}
 
 const input = document.getElementById("q") as HTMLInputElement;
 const suggest = document.getElementById("suggest") as HTMLUListElement;
@@ -642,7 +670,7 @@ function renderSuggest(hits: Hit[]) {
   }
   for (const h of hits.slice(0, 6)) {
     const li = document.createElement("li");
-    li.innerHTML = `<span>${h.label}</span>${h.sub ? `<em>${h.sub}</em>` : ""}`;
+    li.textContent = h.label;
     li.addEventListener("mousedown", (ev) => {
       ev.preventDefault();
       map.flyTo({ center: h.center, zoom: 17, pitch: 60, duration: 1400 });
@@ -657,7 +685,8 @@ function renderSuggest(hits: Hit[]) {
 async function search(q: string) {
   const local = localTowns
     .filter((t) => t.label.includes(q))
-    .map((t) => ({ ...t, sub: "町丁目" }));
+    .map((t) => ({ ...t }))
+    .sort((a, b) => compareTown(a.label, b.label));
 
   // 世田谷区のデータしか持っていないので、検索も区内に限定する
   const remote: Hit[] = [];
