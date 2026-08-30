@@ -94,10 +94,6 @@ const map = new maplibregl.Map({
         attribution:
           '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル</a>',
       },
-      walls: {
-        type: "vector",
-        url: "pmtiles://" + location.origin + "/town-walls.pmtiles",
-      },
       towns: {
         type: "vector",
         url: "pmtiles://" + location.origin + "/towns.pmtiles",
@@ -177,29 +173,6 @@ const map = new maplibregl.Map({
         },
       },
       {
-        id: "town-fill",
-        type: "fill",
-        source: "towns",
-        "source-layer": "towns",
-        layout: { visibility: "none" as const },
-        paint: {
-          // 隣接が同色にならないよう彩色済み。地面の緑に薄く乗せて
-          // 領域の広がりだけを伝える
-          "fill-color": [
-            "match",
-            ["get", "c"],
-            0, "#c9d7c2",
-            1, "#d4d2bd",
-            2, "#c4d3d0",
-            3, "#d7cdc4",
-            4, "#cbd0dd",
-            5, "#d9d3d9",
-            "#d0d4cb",
-          ],
-          "fill-opacity": 0.85,
-        },
-      },
-      {
         id: "town-active-fill",
         type: "fill",
         source: "towns",
@@ -210,35 +183,19 @@ const map = new maplibregl.Map({
           // 塗り分けの上にアクセント色を薄く重ねる。
           // 建物の色を邪魔しない濃さに留める
           "fill-color": "#4a80c4",
-          "fill-opacity": 0.16,
+          "fill-opacity": 0.14,
         },
       },
       {
-        id: "town-active",
+        id: "town-hairline",
         type: "line",
         source: "towns",
         "source-layer": "towns",
-        filter: ["==", ["get", "town"], ""],
-        layout: {
-          visibility: "none" as const,
-          "line-join": "round" as const,
-        },
-        paint: { "line-color": "#4a80c4", "line-width": 2.4 },
-      },
-      {
-        id: "town-outline",
-        type: "line",
-        source: "towns",
-        "source-layer": "towns",
-        layout: {
-          visibility: "none" as const,
-          "line-join": "round" as const,
-          "line-cap": "round" as const,
-        },
+        layout: { visibility: "none" as const, "line-join": "round" as const },
         paint: {
-          "line-color": "#ffffff",
-          "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.8, 16, 2],
-          "line-opacity": 0.7,
+          "line-color": "#8f9a86",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 13, 0.7, 17, 1.4],
+          "line-opacity": 0.45,
         },
       },
       {
@@ -336,7 +293,7 @@ map.on("error", (e) => {
 });
 
 map.addControl(new maplibregl.NavigationControl(), "bottom-right");
-map.addControl(new maplibregl.ScaleControl({ maxWidth: 120 }), "bottom-left");
+map.addControl(new maplibregl.ScaleControl({ maxWidth: 110 }), "bottom-right");
 
 function applyFilter() {
   const shown = [...visible];
@@ -347,6 +304,17 @@ function applyFilter() {
       : ["in", ["get", "status"], ["literal", shown]];
   map.setFilter("changes-fill", expr);
   map.setFilter("changes-outline", expr);
+  // 3D でも同じ絞り込みを効かせる。変化なしの建物は街並みとして常に残す
+  if (map.getLayer("buildings-3d")) {
+    map.setFilter("buildings-3d", [
+      "all",
+      [
+        "!",
+        ["all", ["==", ["get", "year"], 2023], ["==", ["get", "status"], "unchanged"]],
+      ],
+      ["any", ["==", ["get", "status"], "unchanged"], expr],
+    ]);
+  }
 
   params.set("show", shown.join(","));
   history.replaceState(null, "", `?${params}${location.hash}`);
@@ -540,10 +508,8 @@ void buildRanking();
 const FLAT_LAYERS = ["changes-fill", "changes-outline"];
 const GAME_LAYERS = [
   "ground",
-  "town-fill",
-  "town-outline",
+  "town-hairline",
   "town-active-fill",
-  "town-active",
   "landuse-fill",
   "trees-trunk",
   "trees-canopy",
@@ -561,12 +527,15 @@ function setMode(mode: string) {
   show("basemap-pale", !is3d && currentBasemap === "pale");
   show("basemap-photo", !is3d && currentBasemap === "photo");
 
-  document.getElementById("years")!.hidden = !is3d;
-  document.getElementById("filters")!.hidden = is3d;
-  document.getElementById("basemaps")!.hidden = is3d;
+  // 項目の出し入れはせず、その表示で効かないものだけ淡くする。
+  // モードで UI が入れ替わると操作の見当がつかなくなるため
+  document.getElementById("years")!.classList.toggle("inactive", !is3d);
+  document.getElementById("filters")!.classList.remove("inactive");
+  document.getElementById("basemaps")!.classList.toggle("inactive", is3d);
 
   if (is3d) {
     applyYear();
+    applyFilter();
     if (map.getPitch() < 30) {
       requestAnimationFrame(() =>
         map.easeTo({ pitch: 60, zoom: Math.max(map.getZoom(), 16), duration: 900 }),
@@ -763,7 +732,7 @@ function townAt(lng: number, lat: number): string {
 
 /** レイヤがまだ無い段階でも落ちないようにする */
 function setActiveTown(town: string) {
-  for (const id of ["town-active-fill", "town-active"]) {
+  for (const id of ["town-active-fill"]) {
     if (map.getLayer(id)) {
       map.setFilter(id, ["==", ["get", "town"], town]);
     }

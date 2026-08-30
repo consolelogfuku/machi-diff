@@ -42,7 +42,7 @@ body {
   top: 14px;
   left: 14px;
   width: 244px;
-  max-height: calc(100vh - 28px - 42vh);
+  max-height: calc(100vh - 90px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--pad);
@@ -270,7 +270,8 @@ body {
 
 @media (max-height: 760px) {
   #panel { padding: 12px; }
-  #ranking { max-height: 28vh; }
+  #panel .row { padding: 3px 2px; }
+  #ranking { max-height: 30vh; }
 }
 @media (max-width: 640px) {
   #panel, #ranking { width: calc(100vw - 28px); }
@@ -312,4 +313,17 @@ body {
 }
 @media (max-width: 640px) {
   #here { top: auto; bottom: 76px; font-size: 12px; }
+}
+
+/* モードによって効かない操作は、消さずに淡くして位置を保つ */
+.inactive {
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.group-label {
+  margin: 0 0 5px;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
 }

@@ -22,27 +22,30 @@
                autocomplete="off" spellcheck="false">
         <ul id="suggest" hidden></ul>
       </div>
-      <div id="filters"></div>
+      <div id="mode">
+        <label class="row"><input type="radio" name="view" value="2d" checked>
+          <span class="label">平面</span></label>
+        <label class="row"><input type="radio" name="view" value="3d">
+          <span class="label">3D</span></label>
+      </div>
+      <div id="years">
+        <p class="group-label">3Dで見る年度</p>
+        <label class="row"><input type="radio" name="year" value="2023">
+          <span class="label">2023年度</span></label>
+        <label class="row"><input type="radio" name="year" value="2025" checked>
+          <span class="label">2025年度</span></label>
+      </div>
+      <div id="filters">
+        <p class="group-label">2023年度からの変化</p>
+      </div>
       <div id="basemaps">
+        <p class="group-label">背景</p>
         <label class="row"><input type="radio" name="bm" value="pale" checked>
           <span class="label">淡色地図</span></label>
         <label class="row"><input type="radio" name="bm" value="photo">
           <span class="label">空中写真</span></label>
         <label class="row"><input type="radio" name="bm" value="none">
           <span class="label">背景なし</span></label>
-      </div>
-      <div id="mode">
-        <label class="row"><input type="radio" name="view" value="2d" checked>
-          <span class="label">平面（分類）</span></label>
-        <label class="row"><input type="radio" name="view" value="3d">
-          <span class="label">3D（年度比較）</span></label>
-      </div>
-      <div id="years" hidden>
-        <label class="row"><input type="radio" name="year" value="2023">
-          <span class="label">2023年度</span></label>
-        <label class="row"><input type="radio" name="year" value="2025" checked>
-          <span class="label">2025年度</span></label>
-
       </div>
       <p class="hint">建物をクリックすると詳細が出ます</p>
       <details id="about">
@@ -55,7 +58,7 @@
         </p>
       </details>
     </div>
-    <details id="ranking" open>
+    <details id="ranking">
       <summary>変化率ランキング</summary>
       <p class="sub">町丁目別・総建物数300棟以上</p>
       <ol id="rank-list"></ol>
