@@ -225,17 +225,16 @@ const map = new maplibregl.Map({
         },
       },
       {
-        id: "town-dim",
-        type: "fill",
+        id: "town-glow-core",
+        type: "line",
         source: "towns",
         "source-layer": "towns",
-        // 現在地「以外」を覆う。色を足さず明暗だけで領域を示すので、
-        // 建物の色分けと喧嘩しない
-        filter: ["!=", ["get", "town"], "\u0000"],
-        layout: { visibility: "none" as const },
+        filter: ["==", ["get", "town"], "\u0000"],
+        layout: { visibility: "none" as const, "line-join": "round" as const },
         paint: {
-          "fill-color": "#2b2a26",
-          "fill-opacity": 0.13,
+          "line-color": "#3fa9f5",
+          "line-width": ["interpolate", ["linear"], ["zoom"], 13, 2.4, 17, 4],
+          "line-opacity": 1,
         },
       },
       {
@@ -581,30 +580,39 @@ void buildRanking();
 // 建て替えか解体+新築かはデータからは判定できないため、
 // ラベルで断定せず形の変化を直接見せる
 const FLAT_LAYERS = ["buildings-2d", "buildings-2d-outline"];
-const GAME_LAYERS = [
-  "ground",
-  "town-dim",
-  "town-hairline",
-  "landuse-fill",
-  "trees-trunk",
-  "trees-canopy",
-  "buildings-3d",
-];
+// 自前の地面。背景地図を選んだときは譲る
+const OWN_GROUND = ["ground", "landuse-fill"];
+
+/** 見え方と背景の組み合わせから、地面まわりの表示を決める */
+function syncGround() {
+  const is3d =
+    document.querySelector<HTMLInputElement>('input[name="view"]:checked')
+      ?.value === "3d";
+  const show = (id: string, on: boolean) => {
+    if (map.getLayer(id)) {
+      map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    }
+  };
+  const useBasemap = currentBasemap !== "none";
+  show("basemap-pale", useBasemap && currentBasemap === "pale");
+  show("basemap-photo", useBasemap && currentBasemap === "photo");
+  // 背景地図の上に自前の地面を敷くと二重になるので、どちらか一方だけ出す
+  for (const id of OWN_GROUND) show(id, is3d && !useBasemap);
+  // 町丁目の線は3Dのときだけ。平面では建物の輪郭と混ざって煩い
+  for (const id of ["town-hairline", ...GLOW_LAYERS]) show(id, is3d);
+  for (const id of ["trees-trunk", "trees-canopy"]) show(id, is3d);
+}
 
 function setMode(mode: string) {
   const is3d = mode === "3d";
-  const show = (id: string, on: boolean) =>
-    map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-
+  const show = (id: string, on: boolean) => {
+    if (map.getLayer(id)) {
+      map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    }
+  };
   for (const id of FLAT_LAYERS) show(id, !is3d);
-  for (const id of GAME_LAYERS) show(id, is3d);
-  // 3Dのときは背景地図を隠す。自前の地面と二重になるため
-  show("basemap-pale", !is3d && currentBasemap === "pale");
-  show("basemap-photo", !is3d && currentBasemap === "photo");
-
-  // 年度・色分け・絞り込みはすべて両モードで効く。
-  // 淡くするのは背景地図だけ（3Dでは自前の地面を使うため）
-  document.getElementById("basemaps")!.classList.toggle("inactive", is3d);
+  show("buildings-3d", is3d);
+  syncGround();
 
   if (is3d) {
     applyYear();
@@ -670,22 +678,15 @@ initModeControls();
 // --- 背景地図の切り替え ---------------------------------------------------
 function setBasemap(kind: string) {
   currentBasemap = kind;
-  const show = (id: string, on: boolean) =>
-    map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
-  const flat = params.get("mode") !== "3d";
-  show("basemap-pale", flat && kind === "pale");
-  show("basemap-photo", flat && kind === "photo");
+  syncGround();
+
   // 写真の上では建物の塗りが濃すぎると下が見えないので薄くする
   const onPhoto = kind === "photo";
   if (map.getLayer("buildings-2d")) {
     map.setPaintProperty("buildings-2d", "fill-opacity", onPhoto ? 0.5 : 0.9);
   }
   if (map.getLayer("buildings-2d-outline")) {
-    map.setPaintProperty(
-      "buildings-2d-outline",
-      "line-width",
-      onPhoto ? 1 : 0.4,
-    );
+    map.setPaintProperty("buildings-2d-outline", "line-width", onPhoto ? 1 : 0.4);
   }
   params.set("basemap", kind);
   history.replaceState(null, "", `?${params}${location.hash}`);
@@ -850,13 +851,17 @@ function townAt(lng: number, lat: number): string {
 }
 
 /** レイヤがまだ無い段階でも落ちないようにする */
+const GLOW_LAYERS = ["town-glow-core"];
+
 function setActiveTown(town: string) {
-  if (!map.getLayer("town-dim")) return;
-  // 現在地以外を覆う。町名が空のときは何も覆わない
-  map.setFilter(
-    "town-dim",
-    town ? ["!=", ["get", "town"], town] : ["==", ["get", "town"], "\u0000"],
-  );
+  const f: maplibregl.FilterSpecification = [
+    "==",
+    ["get", "town"],
+    town || "\u0000",
+  ];
+  for (const id of GLOW_LAYERS) {
+    if (map.getLayer(id)) map.setFilter(id, f);
+  }
 }
 
 function updateHere(force = false) {
@@ -1017,6 +1022,4 @@ const toggle = document.getElementById("panel-toggle")!;
 toggle.addEventListener("click", () => {
   const closed = document.body.classList.toggle("panel-closed");
   toggle.setAttribute("aria-expanded", String(!closed));
-  // 地図の描画領域が変わるのでサイズを取り直す
-  window.setTimeout(() => map.resize(), 260);
 });

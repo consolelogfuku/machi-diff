@@ -24,11 +24,7 @@ body {
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
-#map {
-  position: absolute;
-  inset: 0 0 0 var(--side);
-  transition: left 0.24s ease;
-}
+#map { position: absolute; inset: 0; }
 body.panel-closed { --side: 0px; }
 body.panel-closed #panel { transform: translateX(-100%); }
 
